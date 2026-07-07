@@ -8,18 +8,58 @@ const { Resend } = require('resend');
 
 class EmailService {
   constructor() {
-    this.provider = process.env.EMAIL_PROVIDER || 'resend';
-    this.from     = process.env.EMAIL_FROM     || 'noreply@miniusadas.com.br';
+    this.provider = process.env.EMAIL_PROVIDER || 'disabled';
+    this.from = process.env.EMAIL_FROM || 'noreply@miniusadas.com.br';
     this.yanmarCC = process.env.EMAIL_YANMAR_ADMIN;
+    this.apiKey = process.env.EMAIL_API_KEY;
+    this.client = null;
 
     if (this.provider === 'resend') {
-      this.client = new Resend(process.env.EMAIL_API_KEY);
+      if (!this.apiKey) {
+        console.warn(
+          '[EmailService] EMAIL_API_KEY não configurada. Serviço de e-mail desativado.'
+        );
+        this.provider = 'disabled';
+        return;
+      }
+
+      this.client = new Resend(this.apiKey);
     }
-    // Futuramente: 'sendgrid' | 'smtp' — sem alterar as chamadas abaixo
+
+    if (this.provider === 'disabled') {
+      console.warn('[EmailService] Serviço de e-mail desativado.');
+    }
   }
 
   async send({ to, subject, html, cc }) {
+    if (!to) {
+      console.warn('[EmailService] Nenhum destinatário informado. E-mail não enviado.');
+      return {
+        success: false,
+        skipped: true,
+        reason: 'missing_recipient',
+      };
+    }
+
+    if (this.provider === 'disabled') {
+      console.warn(`[EmailService] E-mail ignorado porque o provider está desativado: ${subject}`);
+      return {
+        success: false,
+        skipped: true,
+        reason: 'email_provider_disabled',
+      };
+    }
+
     if (this.provider === 'resend') {
+      if (!this.client) {
+        console.warn('[EmailService] Cliente Resend não inicializado. E-mail não enviado.');
+        return {
+          success: false,
+          skipped: true,
+          reason: 'resend_client_not_initialized',
+        };
+      }
+
       return this.client.emails.send({
         from: this.from,
         to: Array.isArray(to) ? to : [to],
@@ -28,6 +68,7 @@ class EmailService {
         html,
       });
     }
+
     throw new Error(`Provider de e-mail não suportado: ${this.provider}`);
   }
 
