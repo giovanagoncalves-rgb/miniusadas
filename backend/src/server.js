@@ -4,6 +4,7 @@ require('express-async-errors');
 const express = require('express');
 const helmet  = require('helmet');
 const cors    = require('cors');
+const path    = require('path');
 
 const { errorHandler } = require('./middlewares/errorHandler');
 const routes           = require('./routes');
@@ -12,7 +13,14 @@ const app  = express();
 const PORT = process.env.PORT || 4000;
 
 // ── Segurança ────────────────────────────────
-app.use(helmet());
+// crossOrigin resource policy liberada para permitir que o front (outro domínio)
+// exiba as imagens servidas por /uploads.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// ── Arquivos enviados (fotos das máquinas) ───
+const UPLOADS_DIR = process.env.STORAGE_LOCAL_PATH || '/app/uploads';
+app.use('/uploads', express.static(UPLOADS_DIR));
+
 const allowedOrigins = (process.env.APP_URL || 'http://localhost')
   .split(',')
   .map(s => s.trim())

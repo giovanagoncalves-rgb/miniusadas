@@ -13,6 +13,12 @@ class StorageService {
     this.provider  = process.env.STORAGE_PROVIDER || 'local';
     this.localPath = process.env.STORAGE_LOCAL_PATH || '/app/uploads';
 
+    // Base pública do backend, para gerar URLs absolutas das fotos (o front é
+    // outro domínio e precisa da URL completa). Railway expõe RAILWAY_PUBLIC_DOMAIN.
+    this.publicBase = (process.env.PUBLIC_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')
+    ).replace(/\/$/, '');
+
     if (this.provider === 'local') {
       fs.mkdirSync(this.localPath, { recursive: true });
     }
@@ -33,7 +39,7 @@ class StorageService {
       const dir  = path.join(this.localPath, folder);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, filename), buffer);
-      return `/uploads/${folder}/${filename}`;
+      return `${this.publicBase}/uploads/${folder}/${filename}`;
     }
 
     // Placeholder S3/R2 — ativado apenas mudando STORAGE_PROVIDER no .env
@@ -67,7 +73,9 @@ class StorageService {
 
   async delete(url) {
     if (this.provider === 'local') {
-      const filePath = path.join(this.localPath, url.replace('/uploads/', ''));
+      const rel = (url.split('/uploads/')[1] || '').split('?')[0];
+      if (!rel) return;
+      const filePath = path.join(this.localPath, rel);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
     // S3/R2 delete pode ser implementado após contrato
