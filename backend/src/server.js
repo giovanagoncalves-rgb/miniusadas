@@ -41,12 +41,13 @@ app.get('/api/health', (_, res) => res.json({ status: 'ok', ts: new Date() }));
 app.use(errorHandler);
 
 // ── Inicialização do banco (idempotente) ─────
-const { initSchema, ensureSeedUsers } = require('./config/initDb');
+const { initSchema, ensureSeedUsers, ensureSampleListings } = require('./config/initDb');
 
 async function start() {
   try {
     await initSchema();
     await ensureSeedUsers();
+    await ensureSampleListings();
   } catch (err) {
     // Não derruba a API se o banco estiver indisponível — apenas registra.
     console.error('[db] Falha ao inicializar o banco:', err.message);

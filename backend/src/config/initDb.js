@@ -123,4 +123,61 @@ async function ensureSeedUsers() {
   }
 }
 
-module.exports = { initSchema, ensureSeedUsers };
+// Anúncios de exemplo (com fotos) para demonstração visual.
+// Só roda se SEED_SAMPLE_LISTINGS=true e se a concessionária demo ainda não
+// tiver anúncios (idempotente — não duplica a cada deploy).
+const SAMPLE_LISTINGS = [
+  { title: 'Mini escavadeira YANMAR ViO17', category: 'mini_escavadeira', model: 'ViO17', year: 2022, hours_used: 320, price: 148000, status: 'published',
+    specs: { 'Potência do motor': '14,5 CV', 'Peso operacional': '1.720 kg', 'Profundidade de escavação': '2.300 mm', 'Tipo de motor': 'Diesel 3 cilindros' }, photos: ['/img/maq-1.jpg', '/img/hero.jpg'] },
+  { title: 'Mini pá carregadeira YANMAR V8', category: 'mini_pa_carregadeira', model: 'V8', year: 2021, hours_used: 1100, price: 132000, status: 'published',
+    specs: { 'Potência do motor': '26 CV', 'Peso operacional': '2.100 kg', 'Capacidade de carga': '600 kg', 'Tração': '4x4' }, photos: ['/img/maq-2.jpg', '/img/hero.jpg'] },
+  { title: 'Mini retroescavadeira YANMAR CBL40', category: 'mini_retroescavadeira', model: 'CBL40', year: 2019, hours_used: 2400, price: 98000, status: 'published',
+    specs: { 'Potência do motor': '40 CV', 'Peso operacional': '2.800 kg', 'Profundidade de escavação': '2.600 mm', 'Tração': '4x2' }, photos: ['/img/maq-3.jpg'] },
+  { title: 'Mini escavadeira YANMAR ViO55', category: 'mini_escavadeira', model: 'ViO55', year: 2023, hours_used: 180, price: 210000, status: 'published',
+    specs: { 'Potência do motor': '39 CV', 'Peso operacional': '5.000 kg', 'Profundidade de escavação': '3.800 mm', 'Tipo de motor': 'Diesel 4 cilindros' }, photos: ['/img/maq-4.jpg', '/img/cta-comprador.jpg'] },
+  { title: 'Mini pá carregadeira YANMAR V4', category: 'mini_pa_carregadeira', model: 'V4', year: 2020, hours_used: 950, price: 89000, status: 'published',
+    specs: { 'Potência do motor': '18 CV', 'Peso operacional': '1.450 kg', 'Capacidade de carga': '400 kg', 'Tração': '4x4' }, photos: ['/img/maq-5.jpg'] },
+  { title: 'Mini escavadeira YANMAR ViO35', category: 'mini_escavadeira', model: 'ViO35', year: 2021, hours_used: 640, price: 165000, status: 'pending_approval',
+    specs: { 'Potência do motor': '27 CV', 'Peso operacional': '3.400 kg', 'Profundidade de escavação': '3.200 mm', 'Tipo de motor': 'Diesel 3 cilindros' }, photos: ['/img/maq-6.jpg'] },
+]
+
+async function ensureSampleListings() {
+  if (process.env.SEED_SAMPLE_LISTINGS !== 'true') return;
+
+  const dealerName = process.env.SEED_DEALER_NAME || 'Concessionária Demo';
+  const { rows: dRows } = await db.query('SELECT id FROM dealers WHERE name = $1', [dealerName]);
+  const dealerId = dRows[0]?.id;
+  if (!dealerId) {
+    console.log('[db] Anúncios de exemplo: concessionária demo não encontrada — defina SEED_DEALER_* primeiro.');
+    return;
+  }
+
+  const { rows: cnt } = await db.query('SELECT COUNT(*) FROM listings WHERE dealer_id = $1', [dealerId]);
+  if (parseInt(cnt[0].count) > 0) {
+    console.log('[db] Anúncios de exemplo já existem — nada a fazer.');
+    return;
+  }
+
+  for (const m of SAMPLE_LISTINGS) {
+    const publishedAt = m.status === 'published' ? 'NOW()' : 'NULL';
+    const { rows } = await db.query(
+      `INSERT INTO listings (dealer_id, title, category, model, year, hours_used, price, description, specs, status, published_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,${publishedAt})
+       RETURNING id`,
+      [dealerId, m.title, m.category, m.model, m.year, m.hours_used, m.price,
+       `${m.title} em excelente estado, revisada e com procedência garantida pela rede autorizada YANMAR.`,
+       JSON.stringify(m.specs), m.status]
+    );
+    const listingId = rows[0].id;
+    let order = 0;
+    for (const url of m.photos) {
+      await db.query(
+        'INSERT INTO listing_photos (listing_id, url, order_index) VALUES ($1, $2, $3)',
+        [listingId, url, order++]
+      );
+    }
+  }
+  console.log(`[db] ${SAMPLE_LISTINGS.length} anúncios de exemplo criados.`);
+}
+
+module.exports = { initSchema, ensureSeedUsers, ensureSampleListings };
