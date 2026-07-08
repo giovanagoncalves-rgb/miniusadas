@@ -217,6 +217,26 @@ const adminList = async (req, res) => {
   res.json(rows);
 };
 
+/** GET /api/admin/listings/:id — detalhe completo para análise (qualquer status) */
+const adminGetById = async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT l.*, d.name AS dealer_name, d.email AS dealer_email,
+            d.phone AS dealer_phone, d.city, d.state, d.region, d.logo_url AS dealer_logo
+     FROM listings l
+     JOIN dealers d ON d.id = l.dealer_id
+     WHERE l.id = $1`,
+    [req.params.id]
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Anúncio não encontrado.' });
+
+  const { rows: photos } = await db.query(
+    'SELECT id, url, order_index FROM listing_photos WHERE listing_id = $1 ORDER BY order_index',
+    [req.params.id]
+  );
+
+  res.json({ ...rows[0], photos });
+};
+
 /** GET /api/dealer/listings — anúncios da própria concessionária */
 const dealerList = async (req, res) => {
   const { rows } = await db.query(
@@ -230,4 +250,4 @@ const dealerList = async (req, res) => {
   res.json(rows);
 };
 
-module.exports = { getPublic, getById, create, submit, pause, markSold, remove, approve, reject, adminList, dealerList };
+module.exports = { getPublic, getById, create, submit, pause, markSold, remove, approve, reject, adminList, adminGetById, dealerList };

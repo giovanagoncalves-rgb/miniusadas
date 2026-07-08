@@ -28,6 +28,7 @@ router.delete('/dealer/photos/:photo_id',         photos.deletePhoto);
 // ── Admin YANMAR ─────────────────────────────
 router.use('/admin', authenticate, requireAdmin);
 router.get ('/admin/listings',                listings.adminList);
+router.get ('/admin/listings/:id',            listings.adminGetById);
 router.patch('/admin/listings/:id/approve',   listings.approve);
 router.patch('/admin/listings/:id/reject',    listings.reject);
 
