@@ -40,6 +40,20 @@ app.get('/api/health', (_, res) => res.json({ status: 'ok', ts: new Date() }));
 // ── Error handler global ─────────────────────
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`[miniusadas] API rodando na porta ${PORT}`);
-});
+// ── Inicialização do banco (idempotente) ─────
+const { initSchema, ensureSeedUsers } = require('./config/initDb');
+
+async function start() {
+  try {
+    await initSchema();
+    await ensureSeedUsers();
+  } catch (err) {
+    // Não derruba a API se o banco estiver indisponível — apenas registra.
+    console.error('[db] Falha ao inicializar o banco:', err.message);
+  }
+  app.listen(PORT, () => {
+    console.log(`[miniusadas] API rodando na porta ${PORT}`);
+  });
+}
+
+start();
